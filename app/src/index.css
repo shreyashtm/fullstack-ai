@@ -1,0 +1,132 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #faf9f5;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f5f2ea;
+  --bg-active: #fbeee6;
+  --bg-code: #f0ece0;
+  --bg-pre: #141413;
+  --text-pre: #f5f2ea;
+
+  --border: #e5e0d3;
+  --border-subtle: #efeae0;
+  --border-dashed: #d8d2c4;
+
+  --text: #141413;
+  --text-body: #262420;
+  --text-soft: #57534a;
+  --text-muted: #8a8377;
+  --text-link: #b45309;
+
+  --accent: #d97757;
+  --accent-strong: #b45309;
+
+  --status-written: #2f6f4e;
+  --status-unwritten: #d8d2c4;
+
+  --depth-recognize: #9a948c;
+  --depth-understand: #3b6ea5;
+  --depth-use: #2f6f4e;
+  --depth-reason: #b45309;
+  --depth-master: #8a5cb8;
+
+  --scrollbar-thumb: #ddd6c4;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17160f;
+    --bg-elevated: #201e17;
+    --bg-subtle: #29261d;
+    --bg-active: #3a2c1f;
+    --bg-code: #322e23;
+    --bg-pre: #0e0d0a;
+    --text-pre: #f0ece0;
+
+    --border: #3a362b;
+    --border-subtle: #2c2a22;
+    --border-dashed: #4a4636;
+
+    --text: #f0ece0;
+    --text-body: #ded8c8;
+    --text-soft: #b3ac9b;
+    --text-muted: #918a78;
+    --text-link: #e0975a;
+
+    --accent: #e0975a;
+    --accent-strong: #e0975a;
+
+    --status-written: #4f9a72;
+    --status-unwritten: #4a4636;
+
+    --depth-recognize: #a89f8c;
+    --depth-understand: #6f9bc9;
+    --depth-use: #4f9a72;
+    --depth-reason: #e0975a;
+    --depth-master: #a687d1;
+
+    --scrollbar-thumb: #3a362b;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #17160f;
+  --bg-elevated: #201e17;
+  --bg-subtle: #29261d;
+  --bg-active: #3a2c1f;
+  --bg-code: #322e23;
+  --bg-pre: #0e0d0a;
+  --text-pre: #f0ece0;
+
+  --border: #3a362b;
+  --border-subtle: #2c2a22;
+  --border-dashed: #4a4636;
+
+  --text: #f0ece0;
+  --text-body: #ded8c8;
+  --text-soft: #b3ac9b;
+  --text-muted: #918a78;
+  --text-link: #e0975a;
+
+  --accent: #e0975a;
+  --accent-strong: #e0975a;
+
+  --status-written: #4f9a72;
+  --status-unwritten: #4a4636;
+
+  --depth-recognize: #a89f8c;
+  --depth-understand: #6f9bc9;
+  --depth-use: #4f9a72;
+  --depth-reason: #e0975a;
+  --depth-master: #a687d1;
+
+  --scrollbar-thumb: #3a362b;
+
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "IBM Plex Sans", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+code,
+pre {
+  font-family: "IBM Plex Mono", monospace;
+}

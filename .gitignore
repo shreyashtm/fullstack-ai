@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Orphaned/unrelated worktree — empty except a stray Vite dep cache,
+# not part of this project (see agents/... memory notes / project history)
+.worktrees/
+
+# Build artifacts (app/ has its own .gitignore for node_modules, dist, etc.
+# — this catches the same patterns if anything is ever added outside app/)
+node_modules/
+dist/
