@@ -54,6 +54,46 @@ function ThemeToggle({ theme, setTheme }) {
   );
 }
 
+const STATUS_COLOR = {
+  Current: "var(--status-written)",
+  "Not started": "var(--status-unwritten)",
+};
+
+function MilestoneStatusDot({ status }) {
+  return (
+    <span
+      className="status-dot"
+      style={{ background: STATUS_COLOR[status] || "var(--text-muted)" }}
+      aria-label={status}
+    />
+  );
+}
+
+/** Inline `code` renderer shared by concept + project markdown: turns any
+ * inline code span matching a real concept id into a jump-to-curriculum
+ * link instead of plain <code>, so the project layer stays a *reference*
+ * to concepts rather than a re-explanation of them. */
+function makeMarkdownComponents(concepts, onJumpToConcept) {
+  return {
+    code({ children, ...props }) {
+      const text = String(children);
+      const concept = concepts[text];
+      if (concept && onJumpToConcept) {
+        return (
+          <button
+            className="concept-ref-link"
+            title={`Jump to ${concept.title} in the curriculum`}
+            onClick={() => onJumpToConcept(text)}
+          >
+            {text}
+          </button>
+        );
+      }
+      return <code {...props}>{children}</code>;
+    },
+  };
+}
+
 function StatusDot({ written }) {
   return (
     <span
@@ -74,18 +114,30 @@ function DepthPill({ depth }) {
   );
 }
 
-function Sidebar({
-  modules,
-  concepts,
-  activeId,
-  onSelect,
-  onlyWritten,
-  setOnlyWritten,
-  query,
-  setQuery,
-  theme,
-  setTheme,
-}) {
+function ViewTabs({ view, setView }) {
+  return (
+    <div className="view-tabs" role="tablist" aria-label="Notebook section">
+      <button
+        role="tab"
+        aria-selected={view === "curriculum"}
+        className={`view-tab${view === "curriculum" ? " active" : ""}`}
+        onClick={() => setView("curriculum")}
+      >
+        Curriculum
+      </button>
+      <button
+        role="tab"
+        aria-selected={view === "project"}
+        className={`view-tab${view === "project" ? " active" : ""}`}
+        onClick={() => setView("project")}
+      >
+        Project
+      </button>
+    </div>
+  );
+}
+
+function CurriculumNav({ modules, concepts, activeId, onSelect, onlyWritten, setOnlyWritten, query, setQuery }) {
   const tracks = [
     { name: "Frontend + Backend", modules: modules.filter((m) => m.track === "Frontend + Backend") },
     { name: "Database + Cloud", modules: modules.filter((m) => m.track === "Database + Cloud") },
@@ -99,24 +151,7 @@ function Sidebar({
   };
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <div className="sidebar-header-row">
-          <div className="section-title">Full-Stack Curriculum</div>
-          <ThemeToggle theme={theme} setTheme={setTheme} />
-        </div>
-        <h1 className="serif app-title">Learning Notebook</h1>
-        <div className="progress-line">
-          {curriculum.writtenConcepts} / {curriculum.totalConcepts} concepts authored
-        </div>
-        <div className="progress-bar">
-          <div
-            className="progress-fill"
-            style={{ width: `${(100 * curriculum.writtenConcepts) / curriculum.totalConcepts}%` }}
-          />
-        </div>
-      </div>
-
+    <>
       <div className="sidebar-controls">
         <input
           className="search-input"
@@ -171,6 +206,126 @@ function Sidebar({
           </div>
         ))}
       </nav>
+    </>
+  );
+}
+
+function ProjectNav({ project, activeMilestoneId, onSelectMilestone }) {
+  return (
+    <nav className="module-nav">
+      <div className="track-group">
+        <div className="track-title">Milestones</div>
+        <ul className="concept-list">
+          {project.milestones.map((m) => (
+            <li key={m.id}>
+              <button
+                className={`concept-link${m.id === activeMilestoneId ? " active" : ""}`}
+                onClick={() => onSelectMilestone(m.id)}
+                disabled={!m.hasContent}
+              >
+                <MilestoneStatusDot status={m.status} />
+                <span className="concept-link-title">
+                  {m.number}. {m.title}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </nav>
+  );
+}
+
+function Sidebar({
+  view,
+  setView,
+  modules,
+  concepts,
+  activeId,
+  onSelect,
+  onlyWritten,
+  setOnlyWritten,
+  query,
+  setQuery,
+  project,
+  activeMilestoneId,
+  onSelectMilestone,
+  theme,
+  setTheme,
+}) {
+  const isProject = view === "project";
+  // "Started" tracks the learner's own build progress (status !== "Not started"),
+  // not whether a spec/scaffold exists — every milestone can have a written
+  // spec long before anyone has implemented it.
+  const milestonesStarted = project ? project.milestones.filter((m) => m.status !== "Not started").length : 0;
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-header">
+        <div className="sidebar-header-row">
+          <ViewTabs view={view} setView={setView} />
+          <ThemeToggle theme={theme} setTheme={setTheme} />
+        </div>
+        <h1 className="serif app-title">Learning Notebook</h1>
+        {isProject ? (
+          project && (
+            <>
+              <div className="progress-line">
+                {milestonesStarted} / {project.milestones.length} milestones started
+              </div>
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${(100 * milestonesStarted) / project.milestones.length}%` }}
+                />
+              </div>
+            </>
+          )
+        ) : (
+          <>
+            <div className="progress-line">
+              {curriculum.writtenConcepts} / {curriculum.totalConcepts} concepts authored
+            </div>
+            <div className="progress-bar">
+              <div
+                className="progress-fill"
+                style={{ width: `${(100 * curriculum.writtenConcepts) / curriculum.totalConcepts}%` }}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {isProject ? (
+        project ? (
+          <>
+            <div className="sidebar-controls">
+              <button
+                className={`concept-link${activeMilestoneId === null ? " active" : ""}`}
+                onClick={() => onSelectMilestone(null)}
+              >
+                Project overview
+              </button>
+            </div>
+            <ProjectNav project={project} activeMilestoneId={activeMilestoneId} onSelectMilestone={onSelectMilestone} />
+          </>
+        ) : (
+          <div className="empty-state">
+            <p>No project layer found.</p>
+          </div>
+        )
+      ) : (
+        <CurriculumNav
+          modules={modules}
+          concepts={concepts}
+          activeId={activeId}
+          onSelect={onSelect}
+          onlyWritten={onlyWritten}
+          setOnlyWritten={setOnlyWritten}
+          query={query}
+          setQuery={setQuery}
+        />
+      )}
     </aside>
   );
 }
@@ -236,8 +391,71 @@ function ConceptView({ concept }) {
   );
 }
 
+function ProjectOverview({ project, concepts, onJumpToConcept }) {
+  const components = useMemo(() => makeMarkdownComponents(concepts, onJumpToConcept), [concepts, onJumpToConcept]);
+
+  return (
+    <div className="concept-view">
+      <div className="concept-header">
+        <h1 className="serif">{project.title}</h1>
+      </div>
+      <div className="markdown-body">
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+          {project.intro}
+        </ReactMarkdown>
+      </div>
+      {project.overviewSections.map((s, i) => (
+        <section key={i} className="concept-section">
+          <div className="section-title">{s.heading}</div>
+          <div className="markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+              {s.content}
+            </ReactMarkdown>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function MilestoneView({ milestone, concepts, onJumpToConcept }) {
+  const components = useMemo(() => makeMarkdownComponents(concepts, onJumpToConcept), [concepts, onJumpToConcept]);
+
+  if (!milestone || !milestone.hasContent) {
+    return (
+      <div className="empty-state">
+        <p>This milestone hasn't been scaffolded yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="concept-view">
+      <div className="concept-header">
+        <h1 className="serif">{milestone.title}</h1>
+        {milestone.guidanceLevel && <DepthPill depth={milestone.guidanceLevel} />}
+      </div>
+      <div className="concept-meta">
+        Milestone {milestone.number} · {milestone.status} · practices {milestone.modulesPracticed}
+      </div>
+      {milestone.sections.map((s, i) => (
+        <section key={i} className="concept-section">
+          <div className="section-title">{s.heading}</div>
+          <div className="markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+              {s.content}
+            </ReactMarkdown>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
+  const [view, setView] = useState("curriculum");
   const [activeId, setActiveId] = useState(null);
+  const [activeMilestoneId, setActiveMilestoneId] = useState(null);
   const [onlyWritten, setOnlyWritten] = useState(false);
   const [query, setQuery] = useState("");
   const [theme, setTheme] = useTheme();
@@ -247,22 +465,57 @@ export default function App() {
     [activeId]
   );
 
+  const activeMilestone = useMemo(
+    () =>
+      curriculum.project && activeMilestoneId
+        ? curriculum.project.milestones.find((m) => m.id === activeMilestoneId)
+        : null,
+    [activeMilestoneId]
+  );
+
+  const jumpToConcept = (id) => {
+    setView("curriculum");
+    setActiveId(id);
+  };
+
   return (
     <div className="app-shell">
       <Sidebar
+        view={view}
+        setView={setView}
         modules={curriculum.modules}
         concepts={curriculum.concepts}
         activeId={activeId}
-        onSelect={setActiveId}
+        onSelect={(id) => {
+          setView("curriculum");
+          setActiveId(id);
+        }}
         onlyWritten={onlyWritten}
         setOnlyWritten={setOnlyWritten}
         query={query}
         setQuery={setQuery}
+        project={curriculum.project}
+        activeMilestoneId={activeMilestoneId}
+        onSelectMilestone={setActiveMilestoneId}
         theme={theme}
         setTheme={setTheme}
       />
       <main className="main-pane">
-        <ConceptView concept={activeConcept} />
+        {view === "project" ? (
+          curriculum.project ? (
+            activeMilestone ? (
+              <MilestoneView milestone={activeMilestone} concepts={curriculum.concepts} onJumpToConcept={jumpToConcept} />
+            ) : (
+              <ProjectOverview project={curriculum.project} concepts={curriculum.concepts} onJumpToConcept={jumpToConcept} />
+            )
+          ) : (
+            <div className="empty-state">
+              <p>No project layer found.</p>
+            </div>
+          )
+        ) : (
+          <ConceptView concept={activeConcept} />
+        )}
       </main>
     </div>
   );

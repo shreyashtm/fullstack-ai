@@ -7,6 +7,7 @@ import path from "node:path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CURRICULUM_DIR = path.resolve(__dirname, "../../curriculum");
+const PROJECT_DIR = path.resolve(__dirname, "../../project");
 const OUT_FILE = path.resolve(__dirname, "../src/content/curriculum.json");
 
 function readCurriculumFile(name) {
@@ -105,6 +106,93 @@ function parseConceptFile(md) {
   return results;
 }
 
+// ---- 3. Parse the project layer (project/README.md + project/milestones/*.md) ----
+// Generic doc shape: H1 title, intro text before the first "## ", then one
+// entry per "## " section. Separate from parseConceptFile's stricter
+// "id — title" heading format — project docs use plain prose headings.
+function parseDoc(md) {
+  const h1Match = md.match(/^# (.+)$/m);
+  const title = h1Match ? h1Match[1].trim() : null;
+  const afterH1 = h1Match ? md.slice(h1Match.index + h1Match[0].length) : md;
+  const firstH2Idx = afterH1.search(/^## /m);
+  const intro = (firstH2Idx === -1 ? afterH1 : afterH1.slice(0, firstH2Idx)).trim();
+  const sectionsMd = firstH2Idx === -1 ? "" : afterH1.slice(firstH2Idx);
+
+  const sections = [];
+  for (const part of sectionsMd.split(/^## /m).slice(1)) {
+    const nl = part.indexOf("\n");
+    const heading = part.slice(0, nl).trim();
+    const content = part.slice(nl + 1).trim();
+    sections.push({ heading, content });
+  }
+  return { title, intro, sections };
+}
+
+function parseMilestonesTable(tableContent) {
+  const rows = tableContent.split("\n").filter((l) => l.trim().startsWith("|"));
+  const out = [];
+  for (const row of rows.slice(2)) {
+    const cells = row.split("|").slice(1, -1).map((c) => c.trim());
+    if (cells.length < 4) continue;
+    const [numStr, linkCell, modules, status] = cells;
+    const linkMatch = linkCell.match(/\[([^\]]+)\]\(([^)]+)\)/);
+    out.push({
+      number: Number(numStr),
+      title: linkMatch ? linkMatch[1] : linkCell.replace(/\*\*/g, ""),
+      href: linkMatch ? linkMatch[2] : null,
+      modulesPracticed: modules,
+      status: status.replace(/\*\*/g, ""),
+    });
+  }
+  return out;
+}
+
+function buildProject() {
+  let readmeRaw;
+  try {
+    readmeRaw = readFileSync(path.join(PROJECT_DIR, "README.md"), "utf-8");
+  } catch {
+    return null; // project layer doesn't exist yet — fine, it's optional
+  }
+
+  const readme = parseDoc(readmeRaw);
+  const milestonesSection = readme.sections.find((s) => s.heading.toLowerCase() === "milestones");
+  const tableRows = milestonesSection ? parseMilestonesTable(milestonesSection.content) : [];
+
+  const milestones = tableRows.map((row) => {
+    const id = row.href ? path.basename(row.href, ".md") : `milestone-${row.number}`;
+    let doc = { title: row.title, intro: "", sections: [] };
+    if (row.href) {
+      try {
+        doc = parseDoc(readFileSync(path.join(PROJECT_DIR, row.href), "utf-8"));
+      } catch {
+        // table references a milestone doc that doesn't exist yet — leave doc empty
+      }
+    }
+    const guidanceMatch = doc.intro.match(/Guidance level:\s*\*\*(.+?)\*\*/);
+    return {
+      id,
+      number: row.number,
+      title: doc.title || row.title,
+      status: row.status,
+      modulesPracticed: row.modulesPracticed,
+      guidanceLevel: guidanceMatch ? guidanceMatch[1] : null,
+      hasContent: doc.sections.length > 0,
+      sections: doc.sections,
+    };
+  });
+
+  // Overview = everything in README.md except the Milestones table (shown as its own nav/list instead)
+  const overviewSections = readme.sections.filter((s) => s.heading.toLowerCase() !== "milestones");
+
+  return {
+    title: readme.title,
+    intro: readme.intro,
+    overviewSections,
+    milestones,
+  };
+}
+
 // ---- Run ----
 const skeleton = parseSkeleton(readCurriculumFile("02-curriculum-model.md"));
 
@@ -133,16 +221,20 @@ for (const file of contentFiles) {
   }
 }
 
+const project = buildProject();
+
 const output = {
   generatedAt: new Date().toISOString(),
   totalConcepts: skeleton.concepts.size,
   writtenConcepts: writtenCount,
   modules: skeleton.modules,
   concepts: Object.fromEntries(skeleton.concepts),
+  project,
 };
 
 writeFileSync(OUT_FILE, JSON.stringify(output, null, 2));
 console.log(
   `[build-content] ${writtenCount}/${skeleton.concepts.size} concepts written, ` +
-    `across ${skeleton.modules.length} modules -> ${path.relative(process.cwd(), OUT_FILE)}`
+    `across ${skeleton.modules.length} modules -> ${path.relative(process.cwd(), OUT_FILE)}` +
+    (project ? `; project layer: ${project.milestones.length} milestone(s)` : "; no project layer found")
 );
