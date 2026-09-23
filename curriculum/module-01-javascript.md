@@ -103,7 +103,6 @@ this` workaround. See `js.functions` for why.)*
 
 **Target depth:** Reason
 
-*(Reproduced from the Design-canvas mockup — content unchanged.)*
 
 ### What Is It?
 
