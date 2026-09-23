@@ -1,7 +1,7 @@
 // Parses ../../curriculum/*.md into src/content/curriculum.json.
 // Re-run automatically by `npm run dev` / `npm run build` (see package.json)
 // so the app always reflects the latest curriculum content on disk.
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -232,6 +232,7 @@ const output = {
   project,
 };
 
+mkdirSync(path.dirname(OUT_FILE), { recursive: true }); // fresh clone: src/content/ isn't tracked, only the generated file is gitignored
 writeFileSync(OUT_FILE, JSON.stringify(output, null, 2));
 console.log(
   `[build-content] ${writtenCount}/${skeleton.concepts.size} concepts written, ` +
