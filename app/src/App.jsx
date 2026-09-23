@@ -69,12 +69,26 @@ function MilestoneStatusDot({ status }) {
   );
 }
 
+/** `table` renderer shared by all markdown content: wraps the table in a
+ * horizontally scrollable container instead of letting it squash or
+ * overflow the viewport on narrow (phone-width) screens. */
+const TABLE_COMPONENTS = {
+  table(props) {
+    return (
+      <div className="table-scroll">
+        <table {...props} />
+      </div>
+    );
+  },
+};
+
 /** Inline `code` renderer shared by concept + project markdown: turns any
  * inline code span matching a real concept id into a jump-to-curriculum
  * link instead of plain <code>, so the project layer stays a *reference*
  * to concepts rather than a re-explanation of them. */
 function makeMarkdownComponents(concepts, onJumpToConcept) {
   return {
+    ...TABLE_COMPONENTS,
     code({ children, ...props }) {
       const text = String(children);
       const concept = concepts[text];
@@ -252,6 +266,8 @@ function Sidebar({
   onSelectMilestone,
   theme,
   setTheme,
+  mobileNavOpen,
+  onCloseMobileNav,
 }) {
   const isProject = view === "project";
   // "Started" tracks the learner's own build progress (status !== "Not started"),
@@ -260,9 +276,12 @@ function Sidebar({
   const milestonesStarted = project ? project.milestones.filter((m) => m.status !== "Not started").length : 0;
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${mobileNavOpen ? " mobile-open" : ""}`}>
       <div className="sidebar-header">
         <div className="sidebar-header-row">
+          <button className="mobile-close-btn" onClick={onCloseMobileNav} aria-label="Close menu">
+            ✕
+          </button>
           <ViewTabs view={view} setView={setView} />
           <ThemeToggle theme={theme} setTheme={setTheme} />
         </div>
@@ -383,7 +402,9 @@ function ConceptView({ concept }) {
         <section key={i} className="concept-section">
           <div className="section-title">{s.heading}</div>
           <div className="markdown-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{s.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={TABLE_COMPONENTS}>
+              {s.content}
+            </ReactMarkdown>
           </div>
         </section>
       ))}
@@ -459,6 +480,7 @@ export default function App() {
   const [onlyWritten, setOnlyWritten] = useState(false);
   const [query, setQuery] = useState("");
   const [theme, setTheme] = useTheme();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const activeConcept = useMemo(
     () => (activeId ? curriculum.concepts[activeId] : null),
@@ -480,6 +502,12 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {!mobileNavOpen && (
+        <button className="mobile-menu-toggle" onClick={() => setMobileNavOpen(true)} aria-label="Open menu">
+          ☰
+        </button>
+      )}
+      {mobileNavOpen && <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />}
       <Sidebar
         view={view}
         setView={setView}
@@ -489,6 +517,7 @@ export default function App() {
         onSelect={(id) => {
           setView("curriculum");
           setActiveId(id);
+          setMobileNavOpen(false);
         }}
         onlyWritten={onlyWritten}
         setOnlyWritten={setOnlyWritten}
@@ -496,9 +525,14 @@ export default function App() {
         setQuery={setQuery}
         project={curriculum.project}
         activeMilestoneId={activeMilestoneId}
-        onSelectMilestone={setActiveMilestoneId}
+        onSelectMilestone={(id) => {
+          setActiveMilestoneId(id);
+          setMobileNavOpen(false);
+        }}
         theme={theme}
         setTheme={setTheme}
+        mobileNavOpen={mobileNavOpen}
+        onCloseMobileNav={() => setMobileNavOpen(false)}
       />
       <main className="main-pane">
         {view === "project" ? (
